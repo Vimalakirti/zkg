@@ -1,0 +1,5 @@
+dataset,sub_id,num_nodes,num_edges,num_rows,logrows,prove_s,verify_s,proof_size_kb,setup_s,gen_settings_s,calibrate_s,verified
+elliptic,191298,12,11,71808,17,17.20,0.1030,331.03,23.71,3.97,97.40,True
+elliptic,145462,50,69,300150,19,42.01,0.4364,1283.44,53.03,5.48,125.36,True
+elliptic,160165,75,81,451163,19,51.08,0.4597,1908.46,62.22,3.24,90.80,True
+elliptic,185164,100,106,602800,20,88.23,0.8930,2535.18,105.12,4.13,100.62,True

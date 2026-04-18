@@ -1,0 +1,2 @@
+dataset,sub_id,num_nodes,num_edges,num_rows,logrows,prove_s,verify_s,proof_size_kb,setup_s,gen_settings_s,calibrate_s,verified
+dgraphfin,1832174,93,93,491459,19,64.06,0.5645,280.58,74.69,4.75,126.18,True

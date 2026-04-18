@@ -1,0 +1,11 @@
+dataset,sub_id,num_nodes,num_edges,num_rows,logrows,prove_s,verify_s,proof_size_kb,setup_s,gen_settings_s,calibrate_s,verified,error
+elliptic,188332,3,2,17939,15,8.92,0.0525,105.49,9.24,4.02,82.23,True,
+elliptic,145748,5,4,29903,15,13.24,0.0744,155.49,11.62,2.75,81.26,True,
+elliptic,196141,7,6,41871,16,12.87,0.0526,205.75,11.96,4.47,96.11,True,
+elliptic,192834,10,10,59830,16,15.36,0.1646,280.89,14.42,3.29,89.10,True,
+elliptic,191298,12,11,,,,,,,,,,pipeline_failed
+elliptic,170495,20,23,119760,17,23.42,0.1175,531.29,23.88,4.34,136.10,True,
+elliptic,150346,30,29,179790,18,23.73,0.1863,782.04,26.33,4.34,93.02,True,
+elliptic,145462,50,69,,,,,,,,,,pipeline_failed
+elliptic,160165,75,81,,,,,,,,,,pipeline_failed
+elliptic,185164,100,106,,,,,,,,,,pipeline_failed
