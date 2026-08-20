@@ -60,10 +60,13 @@ zkg/
 
 ```bash
 cd /path/to/zkg
-cargo build --release
+cargo build --release --bin gcn --bin graphsage --bin gat
 ```
 
-This compiles all binaries (`gcn`, `graphsage`, `gat`, `kernel`, `setup`).
+This compiles the three binaries used by the citation, breakdown,
+zero-knowledge-overhead, and private-$M$ reproduction scripts. The repository
+also contains legacy experimental binaries that are not required for the
+paper tables and are not part of this build command.
 
 ### 2. Generate Data
 
@@ -192,8 +195,8 @@ truncating if the graph requires more terms than its public capacity.
 To reproduce all paper tables end-to-end:
 
 ```bash
-# Step 1: Build (~2 min)
-cargo build --release
+# Step 1: Build the paper-reproduction binaries (~2 min)
+cargo build --release --bin gcn --bin graphsage --bin gat
 
 # Step 2: Generate all data (~1-2 hours)
 ./setup_data.sh
