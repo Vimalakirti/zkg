@@ -37,9 +37,9 @@ parse_verify_ms() {
 run_one() {
   local model=$1 logN=$2 mode=$3
   local N=$((1 << logN))
-  # All models share fake_<N>_d10 graph data. Each binary adds its own prefix
-  # when loading model weights (gcn_, graphsage_, or gat_).
   local dataset="fake_${N}_d10"
+  # GAT reserves one slot in the N-node padded space for padded-edge isolation.
+  [ "$model" = "gat" ] && dataset="fake_${N}_d10_gat"
   local zk_flag=""
   [ "$mode" = "on" ] && zk_flag="--zk"
   local logfile="repro_logs/${model}_${logN}_${mode}.log"
