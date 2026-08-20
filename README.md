@@ -50,6 +50,7 @@ zkg/
 ├── run_ezkl_repro.sh       # Table 4 (ezkl column): EZKL comparison
 ├── run_ablation.sh         # Table 5: SpMM ablation study
 ├── run_zk_overhead_repro.sh# Table 6: Zero-knowledge overhead
+├── run_required_gat_reruns.sh # Corrected GAT rows only
 ├── run_padding_repro.sh    # Appendix: measured private-M capacity overhead
 └── scripts/                # Helper scripts (breakdown parser, etc.)
 ```
@@ -172,6 +173,19 @@ The zkGNN column is produced by `run_subgraph_repro.sh` above. For the EZKL colu
 # Output: repro_summary.csv
 # Time: ~8 hours (GAT 2^15 ZK dominates at ~90 min)
 ```
+
+To collect only the GAT measurements affected by the corrected division proof
+(`tab:proving`, `tab:breakdown`, and the GAT rows of `tab:zk-overhead`), run:
+
+```bash
+./run_required_gat_reruns.sh
+# Outputs three repro_required_gat_*.csv files and raw logs under
+# repro_logs/required_gat/
+```
+
+The Cora and PubMed executions are reused for both end-to-end and breakdown
+results. Private-$M$ padding remains a separate experiment run by
+`run_padding_repro.sh`.
 
 ### Appendix: Quantization Accuracy (`tab:accuracy`)
 
