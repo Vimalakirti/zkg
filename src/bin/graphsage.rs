@@ -101,8 +101,18 @@ fn main() {
   let args: Vec<String> = std::env::args().collect();
   let data_dir = if args.len() >= 3 { Some(args[2].clone()) } else { None };
   let dataset_name = if args.len() >= 4 { args[3].clone() } else { "cora".to_string() };
-  let weights_name = if args.len() >= 5 && args[4] != "--zk" { args[4].clone() } else { dataset_name.clone() };
+  let weights_name = if args.len() >= 5 && !args[4].starts_with("--") { args[4].clone() } else { dataset_name.clone() };
   let zk_mode = args.iter().any(|a| a == "--zk");
+  let factor_capacity = args
+    .iter()
+    .position(|a| a == "--factor-capacity")
+    .map(|i| {
+      args
+        .get(i + 1)
+        .expect("--factor-capacity requires an integer")
+        .parse::<usize>()
+        .expect("invalid --factor-capacity value")
+    });
 
   if let Some(ref data_dir) = data_dir {
     println!("=== GraphSage Inference on {} (weights: {}) ===", dataset_name, weights_name);
@@ -137,10 +147,16 @@ fn main() {
     println!("  Edges (no self-loops): loaded {} raw edges", edge_src.len());
 
     let num_shares = 2;
-    adjacency.additive_factorize(num_shares).expect("Adjacency factorization failed");
+    if let Some(capacity) = factor_capacity {
+      adjacency
+        .additive_factorize_with_capacity(num_shares, capacity)
+        .expect("Adjacency factorization or public-capacity padding failed");
+    } else {
+      adjacency.additive_factorize(num_shares).expect("Adjacency factorization failed");
+    }
     let af = adjacency.additive_factored.as_ref().unwrap();
-    println!("  Adjacency decomposed: {} terms, {} shares, chunk_sizes={:?}",
-      af.terms.len(), af.chunk_sizes.len(), af.chunk_sizes);
+    println!("  Adjacency decomposed: {} terms, {} shares, chunk_sizes={:?}, public_capacity={:?}",
+      af.terms.len(), af.chunk_sizes.len(), af.chunk_sizes, factor_capacity);
 
     // Load labels and masks
     let labels = read_i32_bin(&dataset_path.join("y.bin"));
@@ -368,7 +384,7 @@ fn main() {
     println!("  verify time: {:.3?}", t0.elapsed());
     println!("verified: {:?}", verified);
   } else {
-    println!("Usage: graphsage <config.yaml> <data_dir> [dataset_name]");
+    println!("Usage: graphsage <config.yaml> <data_dir> [dataset_name] [weights_name] [--zk] [--factor-capacity T]");
     println!("  data_dir should contain raw/{{dataset}}/ and raw/graphsage_{{dataset}}/");
     println!("  dataset_name defaults to 'cora'");
   }
