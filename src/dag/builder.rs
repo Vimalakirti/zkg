@@ -248,15 +248,15 @@ impl<F: CryptoField + 'static> DagBuilder<F> {
     vec![out]
   }
 
-  /// ElemDiv: z = floor(S * x / y) element-wise.
-  /// Soundness from: y*z + r = S*x (Einsum + ScaleUp + Sub) with 0 ≤ r < y (NonNeg checks).
-  /// Element-wise division: z = trunc(S * x / y).
+  /// ElemDiv: z = floor(S * x / y) element-wise for positive x and y.
   ///
-  /// Uses truncation division (round toward zero) with an offset to ensure the
-  /// shifted remainder is non-negative for the range check. See gnn_arithmetize.md §3.
+  /// Soundness follows from y*z + r = S*x (Einsum + ScaleUp + Sub),
+  /// r >= 0, and y-r-1 >= 0.  The two range checks enforce 0 <= r < y
+  /// and therefore also exclude a zero or negative divisor.
   ///
-  /// `r_offset_log` controls the offset added to the remainder: OFFSET = 2^r_offset_log.
-  /// Must be large enough that r + OFFSET >= 0 for all elements (i.e., OFFSET >= max|y|).
+  /// `r_offset_log` is the public bit bound used for `r` and `y-r-1`.
+  /// Choosing it so that 2^r_offset_log exceeds the largest honest divisor
+  /// guarantees both range witnesses fit.
   pub fn elem_div(&mut self, x: EdgeId, y: EdgeId, r_offset_log: usize) -> EdgeId {
     let shape = self.init_values[x].as_ref().unwrap().shape.clone();
     let sf = self.init_values[x].as_ref().unwrap().sf;
@@ -281,31 +281,25 @@ impl<F: CryptoField + 'static> DagBuilder<F> {
     // 3. sx = ScaleUp(x, sf, 2*sf) — S*x
     let sx = self.scale(x, sf, 2 * sf)[0];
 
-    // 4. r = Sub(sx, yz) — remainder (can be negative with truncation division)
+    // 4. r = Sub(sx, yz) — derived remainder
     let r = self.sub(sx, yz)[0];
 
-    // 5. r_shifted = Add(r, OFFSET) where OFFSET = 2^r_offset_log
-    //    This guarantees r_shifted >= 0 as long as OFFSET >= max|remainder| = max|y|-1.
+    // 5. Build a constant one and derive the upper-bound slack y-r-1.
+    //    Although r records the product scale in its metadata, r, y, and one
+    //    are integer representatives in the quotient/remainder relation.
     let padded_shape: Vec<usize> = shape.iter().map(|&s| next_pow(s as u32) as usize).collect();
     let n: usize = padded_shape.iter().product();
-    // Build 2^r_offset_log as a field element using repeated doubling
-    // to avoid overflow for large r_offset_log values
-    let mut offset_val = <F as CryptoField>::one();
-    for _ in 0..r_offset_log {
-      offset_val = offset_val + offset_val;
-    }
-    let offset_data = vec![offset_val; n];
-    let offset_witness = Witness::new(shape, offset_data, data_type, 2 * sf, Role::Constant);
-    let offset_edge = self.param(offset_witness);
-    let r_shifted = self.add(r, offset_edge)[0];
+    let one_data = vec![<F as CryptoField>::one(); n];
+    let one_witness = Witness::new(shape, one_data, data_type, sf, Role::Constant);
+    let one = self.param(one_witness);
+    let y_minus_one = self.sub(y, one)[0];
+    let upper_slack = self.sub(y_minus_one, r)[0];
 
-    // 6. NonNeg(r_shifted) — shifted remainder ≥ 0
-    //    Table must be large enough for r_shifted = r + OFFSET.
-    //    Max r_shifted ≈ 2 * OFFSET, so table_size_log = r_offset_log + 1.
-    //    This constrains 0 <= r_shifted < 2^(r_offset_log+1), i.e., -OFFSET <= r < OFFSET.
-    //    NOTE: This bounds |r| < OFFSET but does NOT enforce r < |y| (the divisor).
-    //    Callers must ensure r_offset_log is large enough that OFFSET >= max|y|.
-    self.add_nonneg_node_with_table(r_shifted, r_offset_log + 1);
+    // 6. Enforce 0 <= r < y using two authenticated range checks.
+    //    Choosing the common table bound above the largest honest y ensures
+    //    both r and upper_slack fit because each is strictly smaller than y.
+    self.add_nonneg_node_with_table(r, r_offset_log);
+    self.add_nonneg_node_with_table(upper_slack, r_offset_log);
 
     z
   }

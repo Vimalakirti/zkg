@@ -6,16 +6,16 @@ use crate::util::poly::CryptoField;
 use crate::util::transcript::Transcript;
 use crate::SF_LOG;
 
-/// ElemDivHelper: advice op that computes z = trunc(S * x / y) element-wise.
+/// ElemDivHelper: advice op that computes z = floor(S * x / y) element-wise
+/// for the positive numerator and divisor used by GAT attention normalization.
 /// Input[0]: x (numerator), Input[1]: y (denominator)
 /// Output: z (quotient, rounded toward zero)
 ///
 /// Soundness comes from the DAG-level constraint verification:
 /// 1. yz = Einsum(y, z) — verified product
 /// 2. sx = ScaleUp(x) — S * x
-/// 3. r = Sub(sx, yz) — derived remainder (can be negative)
-/// 4. r_shifted = Add(r, OFFSET) — shift to make non-negative
-/// 5. NonNegative(r_shifted) — range check on shifted remainder
+/// 3. r = Sub(sx, yz) — derived remainder
+/// 4. NonNegative(r) and NonNegative(y-r-1) — enforce 0 <= r < y
 #[derive(Debug, Clone)]
 pub struct ElemDivHelper;
 
@@ -40,7 +40,7 @@ impl<F: CryptoField> BasicBlock<F> for ElemDivHelper {
       let y_i = f_to_int(y.data.as_ref().unwrap().index(i));
 
       if y_i != 0 {
-        // z = trunc(S * x / y) — truncation division (rounds toward zero)
+        // x and y are positive in GAT, so Rust's integer division computes floor.
         let sx = s * x_i;
         let z_i = sx / y_i;
         z_data[i] = if z_i >= 0 {
@@ -70,7 +70,7 @@ impl<F: CryptoField> BasicBlock<F> for ElemDivHelper {
   ) -> (Vec<SumcheckProof<F>>, Vec<Claim<F>>) {
     // Advice-only block: no sumcheck proof needed.
     // Soundness comes from the Einsum constraint (y*z verified) and
-    // NonNegative range checks on r and y-r.
+    // NonNegative range checks on r and y-r-1.
     (vec![], vec![])
   }
 

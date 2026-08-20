@@ -260,8 +260,9 @@ pub fn gat_layer<F: CryptoField + 'static>(
   gat_layer_with_offset(s_src, s_dst, num_heads, weight, attn_src, attn_dst, 42)
 }
 
-/// GAT layer with configurable r_offset_log for element-wise division.
-/// r_offset_log should satisfy 2^r_offset_log >= max softmax denominator.
+/// GAT layer with a configurable range-table bound for element-wise division.
+/// `r_offset_log` must satisfy 2^r_offset_log > max softmax denominator so
+/// both nonnegative remainder witnesses fit.
 /// For large graphs (N > 10K), use 42. For small graphs (N < 100), use 20.
 pub fn gat_layer_with_offset<F: CryptoField + 'static>(
   s_src: EdgeId,
@@ -317,7 +318,7 @@ pub fn gat_layer_with_offset<F: CryptoField + 'static>(
     let z_triple_prime = g.spmv(s_dst, z_double_prime, false, true)[0];
 
     // Step 6: α = Z' / Z''' → (E, K)
-    // r_offset_log must exceed log2(max|denominator|); scales with max node degree
+    // r_offset_log bounds every positive softmax denominator and remainder.
     let alpha = g.elem_div(z_prime, z_triple_prime, r_offset_log);
 
     // Step 7: Per-head weighted combination

@@ -1355,6 +1355,31 @@ impl<F: CryptoField> AdditiveFactoredPoly<F> {
     })
   }
 
+  /// Pad an additive decomposition to a public, witness-independent number of
+  /// terms. Each appended term contains zero factor polynomials, so it does
+  /// not change the represented polynomial.
+  pub fn pad_to_capacity(&mut self, capacity: usize) -> Result<(), String> {
+    if self.terms.len() > capacity {
+      return Err(format!(
+        "decomposition needs {} terms, exceeding public capacity {}",
+        self.terms.len(), capacity
+      ));
+    }
+
+    while self.terms.len() < capacity {
+      let factors = self
+        .chunk_sizes
+        .iter()
+        .map(|&chunk_vars| {
+          let num_vars = self.row_vars + chunk_vars;
+          DenseMLPoly::new(num_vars, vec![<F as CryptoField>::zero(); 1usize << num_vars])
+        })
+        .collect();
+      self.terms.push(factors);
+    }
+    Ok(())
+  }
+
   /// Decompose a one-hot-per-column SelectionPolynomial into factored form using
   /// the Twist and Shout technique. Transposes the matrix so that each row has
   /// exactly one nonzero (one-hot per row), giving t=1 (single additive term).
@@ -2234,6 +2259,31 @@ mod tests {
     full_point.extend_from_slice(&r_y);
     let direct_eval = sparse.evaluate_at_point(&full_point);
     assert_eq!(af_eval, direct_eval, "Additive factored eval must match for rank-2 row");
+  }
+
+  #[test]
+  fn test_additive_factored_poly_public_capacity_padding() {
+    let row_vars = 2;
+    let col_vars = 2;
+    let num_rows = 1usize << row_vars;
+    let mut evaluations = std::collections::HashMap::new();
+    evaluations.insert(0, <F as CryptoField>::from_u32(1));
+    evaluations.insert(3 * num_rows, <F as CryptoField>::from_u32(1));
+
+    let indices = evaluations.keys().copied().collect();
+    let selection = SelectionPolynomial::<F>::new(row_vars, col_vars, vec![]);
+    let sparse = SparseMLPoly::new(row_vars + col_vars, evaluations, indices, selection);
+    let mut af = AdditiveFactoredPoly::decompose(&sparse, row_vars, col_vars, 2)
+      .expect("Decomposition should succeed");
+    assert_eq!(af.num_terms(), 2);
+
+    let r_x = vec![<F as CryptoField>::from_u32(7), <F as CryptoField>::from_u32(13)];
+    let r_y = vec![<F as CryptoField>::from_u32(3), <F as CryptoField>::from_u32(5)];
+    let before = af.evaluate(&r_x, &r_y);
+    af.pad_to_capacity(4).expect("Public capacity should fit");
+    assert_eq!(af.num_terms(), 4);
+    assert_eq!(af.evaluate(&r_x, &r_y), before, "Zero terms must preserve the polynomial");
+    assert!(af.pad_to_capacity(1).is_err(), "Capacity below the true rank must fail");
   }
 
   #[test]

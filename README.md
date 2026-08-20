@@ -50,6 +50,7 @@ zkg/
 ├── run_ezkl_repro.sh       # Table 4 (ezkl column): EZKL comparison
 ├── run_ablation.sh         # Table 5: SpMM ablation study
 ├── run_zk_overhead_repro.sh# Table 6: Zero-knowledge overhead
+├── run_padding_repro.sh    # Appendix: measured private-M capacity overhead
 └── scripts/                # Helper scripts (breakdown parser, etc.)
 ```
 
@@ -93,6 +94,9 @@ This runs the following pipeline:
 
 # Prove with zero-knowledge mode
 ./target/release/gcn config.yaml pyg/weights cora --zk
+
+# Hide the true factor count using a predeclared public capacity
+./target/release/gcn config.yaml pyg/weights cora --zk --factor-capacity 32
 ```
 
 SRS files are generated automatically on first use and cached to the working directory as `*.srs` files.
@@ -169,6 +173,19 @@ The zkGNN column is produced by `run_subgraph_repro.sh` above. For the EZKL colu
 ### Appendix: Quantization Accuracy (`tab:accuracy`)
 
 Quantized accuracy numbers are printed during training (Step 2 above). The Rust prover also prints accuracy when run on each dataset.
+
+### Appendix: Private Edge-Count Padding
+
+```bash
+./run_padding_repro.sh
+# Output: repro_padding.csv
+```
+
+This runs GCN and GraphSAGE in zero-knowledge mode both with the true
+decomposition size and with the predeclared capacities used by the paper
+(32 for Cora/CiteSeer and 128 for PubMed). It reports commitment, proving,
+verification, proof-size, and peak-memory overhead. A run aborts instead of
+truncating if the graph requires more terms than its public capacity.
 
 ## Running All Experiments
 

@@ -204,6 +204,21 @@ impl<F: CryptoField + 'static> Witness<F> {
     Ok(())
   }
 
+  /// Additively factorize a sparse matrix and pad its factorization to the
+  /// authenticated public capacity used by data-independent zkGNN.
+  pub fn additive_factorize_with_capacity(
+    &mut self,
+    num_shares: usize,
+    capacity: usize,
+  ) -> Result<(), String> {
+    self.additive_factorize(num_shares)?;
+    self
+      .additive_factored
+      .as_mut()
+      .expect("factorization was just constructed")
+      .pad_to_capacity(capacity)
+  }
+
   /// Twist and Shout factorization for one-hot-per-column SelectionPolynomial
   /// witnesses (e.g., GAT incidence matrices). Transposes the polynomial so
   /// each row has exactly one nonzero, giving t=1 additive terms.
