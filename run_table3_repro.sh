@@ -59,7 +59,9 @@ run_table3() {
 run_gat_zk() {
   local logN=$1 mode=$2
   local N=$((1 << logN))
-  local dataset="fake_${N}_d10_gat"
+  # gen_fake.py stores shared graph data as fake_<N>_d10 and model-specific
+  # GAT weights as gat_fake_<N>_d10. The GAT binary adds the gat_ prefix.
+  local dataset="fake_${N}_d10"
   local zk_flag=""
   [ "$mode" = "on" ] && zk_flag="--zk"
   local logfile="repro_logs/gat_${logN}_${mode}_v2.log"
