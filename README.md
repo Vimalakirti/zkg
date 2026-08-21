@@ -181,6 +181,17 @@ To collect only the GAT measurements affected by the corrected division proof
 ./run_required_gat_reruns.sh
 # Outputs three repro_required_gat_*.csv files and raw logs under
 # repro_logs/required_gat/
+
+# To rerun only PubMed and the missing 2^14--2^15 synthetic rows, while
+# preserving the earlier CSV files:
+GAT_RESULT_TAG=failed_only \
+GAT_CITATION_DATASETS="pubmed" \
+GAT_ZK_LOG_NS="14 15" \
+./run_required_gat_reruns.sh
+# Outputs repro_failed_only_*.csv and repro_logs/failed_only/.
+
+# Equivalently, use the convenience wrapper:
+./run_failed_gat_reruns.sh
 ```
 
 The Cora and PubMed executions are reused for both end-to-end and breakdown

@@ -395,7 +395,12 @@ impl<F: CryptoField> BasicBlock<F> for Einsum {
       let witness = witnesses[i];
       let n = get_n(&witness.shape);
 
-      let permuted_witness_poly = if n >= 18 && degree_one_challenges[i].len() > 0 {
+      // The table-assisted partial evaluator is beneficial when several
+      // variables are fixed.  For one or two variables, the exact field path
+      // is both inexpensive and avoids the value-dependent integer fast path.
+      // In particular, PubMed's second GAT layer fixes the two padded class
+      // variables of a 19-variable polynomial here.
+      let permuted_witness_poly = if n >= 18 && degree_one_challenges[i].len() > 2 {
         let witness_evaluations = witness.data_int.as_ref().unwrap();
         let permuted_witness_evaluations = permute_evals_by_ranges(witness_evaluations, n, &permute_vec);
         fix_variables_zkgpt(n, &permuted_witness_evaluations, &degree_one_challenges[i], *SF_LOG as usize + 2)
@@ -490,7 +495,9 @@ impl<F: CryptoField> BasicBlock<F> for Einsum {
       let witness = witnesses[i];
       let n = get_n(&witness.shape);
 
-      let permuted_witness_poly = if n >= 18 && degree_one_challenges[i].len() > 0 {
+      // Keep this selection identical to the non-ZK prover so both modes use
+      // the exact field evaluator for small fixed prefixes.
+      let permuted_witness_poly = if n >= 18 && degree_one_challenges[i].len() > 2 {
         let witness_evaluations = witness.data_int.as_ref().unwrap();
         let permuted_witness_evaluations = permute_evals_by_ranges(witness_evaluations, n, &permute_vec);
         fix_variables_zkgpt(n, &permuted_witness_evaluations, &degree_one_challenges[i], *SF_LOG as usize + 2)

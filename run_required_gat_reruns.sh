@@ -8,10 +8,22 @@
 set -u
 cd "$(dirname "$0")"
 
-LOG_DIR="repro_logs/required_gat"
-PROVING_RESULTS="repro_required_gat_proving.csv"
-BREAKDOWN_RESULTS="repro_required_gat_breakdown.csv"
-ZK_RESULTS="repro_required_gat_zk.csv"
+# Override these variables to rerun only a subset without overwriting a prior
+# complete result set.  For example, after the first run reported a PubMed
+# verification failure and ran out of SRS storage at 2^14:
+#   GAT_RESULT_TAG=failed_only \
+#   GAT_CITATION_DATASETS="pubmed" \
+#   GAT_ZK_LOG_NS="14 15" \
+#   ./run_required_gat_reruns.sh
+GAT_RESULT_TAG="${GAT_RESULT_TAG:-required_gat}"
+GAT_CITATION_DATASETS="${GAT_CITATION_DATASETS:-cora citeseer pubmed}"
+GAT_ZK_LOG_NS="${GAT_ZK_LOG_NS:-12 13 14 15}"
+GAT_ZK_MODES="${GAT_ZK_MODES:-off on}"
+
+LOG_DIR="repro_logs/${GAT_RESULT_TAG}"
+PROVING_RESULTS="repro_${GAT_RESULT_TAG}_proving.csv"
+BREAKDOWN_RESULTS="repro_${GAT_RESULT_TAG}_breakdown.csv"
+ZK_RESULTS="repro_${GAT_RESULT_TAG}_zk.csv"
 
 mkdir -p "$LOG_DIR"
 echo "dataset,commit_s,prove_s,verify_ms,proof_size,verified" > "$PROVING_RESULTS"
@@ -93,9 +105,23 @@ run_citation() {
 
   echo ">>> [$(date '+%H:%M:%S')] GAT end-to-end: $dataset"
   ./target/release/gat config.yaml pyg/weights "$dataset" > "$logfile" 2>&1
+  local status=$?
+
+  if [ "$status" -ne 0 ]; then
+    echo "    COMMAND FAILED (exit ${status}); see $logfile"
+    echo "${dataset},FAIL,FAIL,FAIL,FAIL,false" >> "$PROVING_RESULTS"
+    if [ "$dataset" = "cora" ] || [ "$dataset" = "pubmed" ]; then
+      echo "${dataset},FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,false" >> "$BREAKDOWN_RESULTS"
+    fi
+    return
+  fi
 
   if ! grep -q "^verified: true" "$logfile"; then
-    echo "    FAILED; see $logfile"
+    if grep -q "^verified: false" "$logfile"; then
+      echo "    VERIFICATION FAILED; see $logfile"
+    else
+      echo "    INCOMPLETE OUTPUT (no verification result); see $logfile"
+    fi
     echo "${dataset},FAIL,FAIL,FAIL,FAIL,false" >> "$PROVING_RESULTS"
     if [ "$dataset" = "cora" ] || [ "$dataset" = "pubmed" ]; then
       echo "${dataset},FAIL,FAIL,FAIL,FAIL,FAIL,FAIL,false" >> "$BREAKDOWN_RESULTS"
@@ -127,9 +153,20 @@ run_synthetic() {
 
   echo ">>> [$(date '+%H:%M:%S')] GAT ZK overhead: N=2^${log_n} mode=${mode}"
   "${command[@]}" > "$logfile" 2>&1
+  local status=$?
+
+  if [ "$status" -ne 0 ]; then
+    echo "    COMMAND FAILED (exit ${status}); see $logfile"
+    echo "2^${log_n},${mode},FAIL,FAIL,FAIL,FAIL,FAIL,false" >> "$ZK_RESULTS"
+    return
+  fi
 
   if ! grep -q "^verified: true" "$logfile"; then
-    echo "    FAILED; see $logfile"
+    if grep -q "^verified: false" "$logfile"; then
+      echo "    VERIFICATION FAILED; see $logfile"
+    else
+      echo "    INCOMPLETE OUTPUT (no verification result); see $logfile"
+    fi
     echo "2^${log_n},${mode},FAIL,FAIL,FAIL,FAIL,FAIL,false" >> "$ZK_RESULTS"
     return
   fi
@@ -164,13 +201,13 @@ if [ ! -x ./target/release/gat ]; then
 fi
 
 missing_data=0
-for dataset in cora citeseer pubmed; do
+for dataset in $GAT_CITATION_DATASETS; do
   if [ ! -f "pyg/weights/raw/${dataset}/meta.json" ]; then
     echo "Missing citation data: pyg/weights/raw/${dataset}/meta.json"
     missing_data=1
   fi
 done
-for log_n in 12 13 14 15; do
+for log_n in $GAT_ZK_LOG_NS; do
   node_capacity=$((1 << log_n))
   dataset="fake_${node_capacity}_d10_gat"
   if [ ! -f "pyg/weights/raw/${dataset}/meta.json" ]; then
@@ -191,14 +228,14 @@ echo "======================================"
 
 echo ""
 echo "--- tab:proving and tab:breakdown ---"
-for dataset in cora citeseer pubmed; do
+for dataset in $GAT_CITATION_DATASETS; do
   run_citation "$dataset"
 done
 
 echo ""
 echo "--- tab:zk-overhead (GAT rows only) ---"
-for log_n in 12 13 14 15; do
-  for mode in off on; do
+for log_n in $GAT_ZK_LOG_NS; do
+  for mode in $GAT_ZK_MODES; do
     run_synthetic "$log_n" "$mode"
   done
 done
