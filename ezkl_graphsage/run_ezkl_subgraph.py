@@ -26,8 +26,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-DATA_DIR = "/scratch/bjchen4_icgpu/zkgnn/pyg/weights/raw"
-WORK_DIR = "/taiga/illinois/eng/cs/ddkang/bjchen4/ezkl_subgraph_work"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_DIR = os.path.dirname(SCRIPT_DIR)
+DATA_DIR = os.environ.get("ZKG_DATA_DIR", os.path.join(REPO_DIR, "pyg", "weights", "raw"))
+WORK_DIR = os.environ.get("EZKL_WORK_DIR", os.path.join(SCRIPT_DIR, "work"))
 
 
 def read_f32_bin(path):
@@ -359,7 +361,8 @@ def main():
         shutil.rmtree(sub_work, ignore_errors=True)
 
     # Write CSV
-    csv_path = os.path.join("/scratch/bjchen4_icgpu/zkgnn/ezkl_graphsage", args.output_csv)
+    csv_path = os.path.abspath(args.output_csv)
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     if results:
         fieldnames = list(results[0].keys())
         # Union all keys

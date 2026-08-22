@@ -51,7 +51,10 @@ zkg/
 ├── run_ablation.sh         # Table 5: SpMM ablation study
 ├── run_zk_overhead_repro.sh# Table 6: Zero-knowledge overhead
 ├── run_required_gat_reruns.sh # Corrected GAT rows only
+├── run_gat_citation_zk_repro.sh # Real-graph GAT ZK repetitions
+├── run_ezkl_paired_repro.sh # Repeated representative ezkl comparisons
 ├── run_padding_repro.sh    # Appendix: measured private-M capacity overhead
+├── run_srs_setup_repro.sh  # Appendix: reusable KZH3 SRS setup/load cost
 └── scripts/                # Helper scripts (breakdown parser, etc.)
 ```
 
@@ -206,14 +209,53 @@ Quantized accuracy numbers are printed during training (Step 2 above). The Rust 
 
 ```bash
 ./run_padding_repro.sh
-# Output: repro_padding.csv
+# Outputs: repro_padding_raw.csv and repro_padding.csv
 ```
 
 This runs GCN and GraphSAGE in zero-knowledge mode both with the true
 decomposition size and with the predeclared capacities used by the paper
 (32 for Cora/CiteSeer and 128 for PubMed). It reports commitment, proving,
-verification, proof-size, and peak-memory overhead. A run aborts instead of
-truncating if the graph requires more terms than its public capacity.
+verification, proof-size, and peak-memory overhead. By default it performs
+three repetitions in counterbalanced order and reports means and standard
+deviations; set `PADDING_REPETITIONS=1` for a smoke test. A run aborts instead
+of truncating if the graph requires more terms than its public capacity.
+
+### Appendix: Real-Graph GAT Zero-Knowledge Overhead
+
+```bash
+./run_gat_citation_zk_repro.sh
+# Outputs: repro_gat_citation_zk_raw.csv and repro_gat_citation_zk.csv
+```
+
+This runs GAT on Cora, CiteSeer, and PubMed with zero knowledge off and on.
+The default is three counterbalanced repetitions. Use
+`GAT_CITATION_ZK_DATASETS="cora"` or
+`GAT_CITATION_ZK_REPETITIONS=1` for a smaller run.
+
+### Appendix: Repeated Representative ezkl Comparison
+
+```bash
+./run_ezkl_paired_repro.sh
+# Outputs: repro_ezkl_paired_raw.csv and repro_ezkl_paired.csv
+```
+
+This repeats the six representative rows in the main comparison table for
+both systems. It requires `ezkl==23.0.5`; `ZKG_DATA_DIR` and `EZKL_WORK_DIR`
+may override the portable repository-relative defaults used by the Python
+runner.
+
+### Appendix: KZH3 SRS Setup Cost
+
+```bash
+cargo build --release --no-default-features --features icicle --bin setup
+./run_srs_setup_repro.sh
+# Output: repro_srs_setup.csv
+```
+
+The default run measures the 24- and 26-variable factor SRS used by balanced
+decomposition at node capacities $2^{16}$ and $2^{17}$. It reports generation
+and load wall time, peak RSS, and serialized size. Temporary SRS files are
+removed after measurement; set `SRS_SETUP_KEEP_FILES=1` to retain them.
 
 ## Running All Experiments
 
