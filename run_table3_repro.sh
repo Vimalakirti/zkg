@@ -59,6 +59,8 @@ run_table3() {
 run_gat_zk() {
   local logN=$1 mode=$2
   local N=$((1 << logN))
+  # The GAT-specific graph has N-1 real nodes and reserves one padded slot as
+  # the dummy endpoint for padded edges. Its suffix still denotes capacity N.
   local dataset="fake_${N}_d10_gat"
   local zk_flag=""
   [ "$mode" = "on" ] && zk_flag="--zk"

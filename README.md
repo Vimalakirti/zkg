@@ -50,7 +50,11 @@ zkg/
 ├── run_ezkl_repro.sh       # Table 4 (ezkl column): EZKL comparison
 ├── run_ablation.sh         # Table 5: SpMM ablation study
 ├── run_zk_overhead_repro.sh# Table 6: Zero-knowledge overhead
+├── run_required_gat_reruns.sh # Corrected GAT rows only
+├── run_gat_citation_zk_repro.sh # Real-graph GAT ZK repetitions
+├── run_ezkl_paired_repro.sh # Repeated representative ezkl comparisons
 ├── run_padding_repro.sh    # Appendix: measured private-M capacity overhead
+├── run_srs_setup_repro.sh  # Appendix: reusable KZH3 SRS setup/load cost
 └── scripts/                # Helper scripts (breakdown parser, etc.)
 ```
 
@@ -60,10 +64,13 @@ zkg/
 
 ```bash
 cd /path/to/zkg
-cargo build --release
+cargo build --release --bin gcn --bin graphsage --bin gat
 ```
 
-This compiles all binaries (`gcn`, `graphsage`, `gat`, `kernel`, `setup`).
+This compiles the three binaries used by the citation, breakdown,
+zero-knowledge-overhead, and private-$M$ reproduction scripts. The repository
+also contains legacy experimental binaries that are not required for the
+paper tables and are not part of this build command.
 
 ### 2. Generate Data
 
@@ -170,6 +177,30 @@ The zkGNN column is produced by `run_subgraph_repro.sh` above. For the EZKL colu
 # Time: ~8 hours (GAT 2^15 ZK dominates at ~90 min)
 ```
 
+To collect only the GAT measurements affected by the corrected division proof
+(`tab:proving`, `tab:breakdown`, and the GAT rows of `tab:zk-overhead`), run:
+
+```bash
+./run_required_gat_reruns.sh
+# Outputs three repro_required_gat_*.csv files and raw logs under
+# repro_logs/required_gat/
+
+# To rerun only PubMed and the missing 2^14--2^15 synthetic rows, while
+# preserving the earlier CSV files:
+GAT_RESULT_TAG=failed_only \
+GAT_CITATION_DATASETS="pubmed" \
+GAT_ZK_LOG_NS="14 15" \
+./run_required_gat_reruns.sh
+# Outputs repro_failed_only_*.csv and repro_logs/failed_only/.
+
+# Equivalently, use the convenience wrapper:
+./run_failed_gat_reruns.sh
+```
+
+The Cora and PubMed executions are reused for both end-to-end and breakdown
+results. Private-$M$ padding remains a separate experiment run by
+`run_padding_repro.sh`.
+
 ### Appendix: Quantization Accuracy (`tab:accuracy`)
 
 Quantized accuracy numbers are printed during training (Step 2 above). The Rust prover also prints accuracy when run on each dataset.
@@ -178,22 +209,61 @@ Quantized accuracy numbers are printed during training (Step 2 above). The Rust 
 
 ```bash
 ./run_padding_repro.sh
-# Output: repro_padding.csv
+# Outputs: repro_padding_raw.csv and repro_padding.csv
 ```
 
 This runs GCN and GraphSAGE in zero-knowledge mode both with the true
 decomposition size and with the predeclared capacities used by the paper
 (32 for Cora/CiteSeer and 128 for PubMed). It reports commitment, proving,
-verification, proof-size, and peak-memory overhead. A run aborts instead of
-truncating if the graph requires more terms than its public capacity.
+verification, proof-size, and peak-memory overhead. By default it performs
+three repetitions in counterbalanced order and reports means and standard
+deviations; set `PADDING_REPETITIONS=1` for a smoke test. A run aborts instead
+of truncating if the graph requires more terms than its public capacity.
+
+### Appendix: Real-Graph GAT Zero-Knowledge Overhead
+
+```bash
+./run_gat_citation_zk_repro.sh
+# Outputs: repro_gat_citation_zk_raw.csv and repro_gat_citation_zk.csv
+```
+
+This runs GAT on Cora, CiteSeer, and PubMed with zero knowledge off and on.
+The default is three counterbalanced repetitions. Use
+`GAT_CITATION_ZK_DATASETS="cora"` or
+`GAT_CITATION_ZK_REPETITIONS=1` for a smaller run.
+
+### Appendix: Repeated Representative ezkl Comparison
+
+```bash
+./run_ezkl_paired_repro.sh
+# Outputs: repro_ezkl_paired_raw.csv and repro_ezkl_paired.csv
+```
+
+This repeats the six representative rows in the main comparison table for
+both systems. It requires `ezkl==23.0.5`; `ZKG_DATA_DIR` and `EZKL_WORK_DIR`
+may override the portable repository-relative defaults used by the Python
+runner.
+
+### Appendix: KZH3 SRS Setup Cost
+
+```bash
+cargo build --release --no-default-features --features icicle --bin setup
+./run_srs_setup_repro.sh
+# Output: repro_srs_setup.csv
+```
+
+The default run measures the 24- and 26-variable factor SRS used by balanced
+decomposition at node capacities $2^{16}$ and $2^{17}$. It reports generation
+and load wall time, peak RSS, and serialized size. Temporary SRS files are
+removed after measurement; set `SRS_SETUP_KEEP_FILES=1` to retain them.
 
 ## Running All Experiments
 
 To reproduce all paper tables end-to-end:
 
 ```bash
-# Step 1: Build (~2 min)
-cargo build --release
+# Step 1: Build the paper-reproduction binaries (~2 min)
+cargo build --release --bin gcn --bin graphsage --bin gat
 
 # Step 2: Generate all data (~1-2 hours)
 ./setup_data.sh
